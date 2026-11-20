@@ -11,10 +11,11 @@ from app.modules.domain.handler import router as domain
 from app.modules.reconcile.handler import router as reconcile
 from app.modules.runs.handler import router as runs
 from app.modules.review.handler import router as review
+from app.modules.shifts.handler import router as shifts
 
 app = FastAPI(title=TITLE)
 app.mount('/static',StaticFiles(directory=ROOT/'app/static'),name='static')
-for router in (web,intake,contract,quality,domain,reconcile,runs,review):
+for router in (web,intake,contract,quality,domain,reconcile,runs,review,shifts):
     app.include_router(router)
 
 @app.exception_handler(DataError)

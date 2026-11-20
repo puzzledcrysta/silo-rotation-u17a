@@ -9,4 +9,8 @@ REASONS = {
     'AMOUNT_DELTA': '复算与外部账计量不同', 'BOOK_CONFLICT': '独立账含重复业务键',
     'RUN_UNKNOWN': '没有此批次', 'DEMO_UNKNOWN': '没有此样例', 'STALE': '复核版本已过期',
     'REVIEW_NOTE': '有差异时须填写复核意见', 'REVIEW_DECISION': '复核结论无效',
+    'SHIFT_UNKNOWN': '没有此班次', 'SHIFT_NO_VERSION': '班次尚未裁决',
+    'STRATEGY_INVALID': '裁决策略无效', 'PICKED_UNKNOWN': '备货单不在班次内',
+    'FREEZE_INFEASIBLE': '冻结分配与当前班次库存冲突',
+    'RECONCILE_DIFF': '独立对账未完成或存在差异', 'UNPUBLISHED': '当前裁决版本未确认',
 }

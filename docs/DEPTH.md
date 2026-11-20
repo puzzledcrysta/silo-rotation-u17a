@@ -15,6 +15,14 @@
 | M5 独立对账 | 核对外部记录并分别计量 | `POST /api/reconcile` | `app/modules/reconcile/service.py` | `tests/test_reconcile.py` |
 | M6 批次复算 | 保存运行、查询历史、复算原输入 | `POST /api/runs` | `app/modules/runs/service.py` | `tests/test_runs.py` |
 | M7 交付复核 | 复核差异、阻止陈旧提交、导出证据 | `GET /api/export` | `app/modules/review/decisions.py` | `tests/test_review.py` |
+| M8 班次裁决 | 裁决冻结或重排、发布前对账闸门 | `POST /api/shifts/{run}/{shift}/adjudicate` | `app/modules/shifts/allocate.py` | `tests/test_shifts.py` |
+
+## 班次裁决规则
+
+班次以轮换日划分。批次池取班次内最晚提交的批次快照（时刻、修订号、行号依次裁决），到期日当天停调，法定留样不参与分配。
+保管员勾选已备货调出单后二选一：`freeze` 冻结备货分配，未发车单沿用原挑批并按剩余池裁减；`resequence` 重排未发车单，按到期优先从剩余池重挑。
+已备货单逐袋冻结，与当前池冲突则整次裁决失败并保留旧版。分配逐袋扣减，任何批次不会被重复占用。
+裁决指纹为 规则+批次+班次+策略+备货单 的 SHA-256，同班次重跑返回原版本。确认发布要求独立对账无差异，导出仅限已确认的当前版本。
 
 ## 陷阱登记
 
@@ -31,6 +39,10 @@
 | TRAP-18 | 三种空态 | 测试构造输入 | `app/modules/intake/service.py` | `tests/test_intake.py::test_empty_states` |
 | TRAP-26 | 陈旧复核 | 测试构造输入 | `app/modules/review/decisions.py` | `tests/test_review.py::test_stale` |
 | TRAP-19 | 同期限批次按编号稳定选取 | cases.csv | `app/modules/domain/rule.py` | `tests/test_domain.py::test_rotate` |
+| TRAP-27 | 同班次重复占批 | shift.csv | `app/modules/shifts/pool.py` | `tests/test_shifts.py::test_naive_view_exposes_double_occupation` |
+| TRAP-28 | 晚到修订改变可用库存 | 测试构造输入 | `app/modules/shifts/pool.py` | `tests/test_shifts.py::test_late_revision_changes_available_inventory` |
+| TRAP-29 | 冻结分配与库存冲突 | 测试构造输入 | `app/modules/shifts/allocate.py` | `tests/test_shifts.py::test_freeze_infeasible_keeps_old_version` |
+| TRAP-30 | 未确认版本导出 | 测试构造输入 | `app/modules/shifts/service.py` | `tests/test_shifts.py::test_review_and_export_versions_stay_consistent` |
 
 ## 对账规则
 

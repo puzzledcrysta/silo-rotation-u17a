@@ -14,6 +14,7 @@ let result = null;
 let inputs = {};
 let reviewVersion = 0;
 let renderEpoch = 0;
+let shiftDay = null;
 const uploaded = new Map();
 
 function notice(message, error = false) {
@@ -83,6 +84,153 @@ function setRun(report) {
   live.textContent = `批次 ${id.slice(0, 9)} · ${result.balanced ? '记录已对齐' : '记录数不符'}`;
 }
 
+const STRATEGY_LABELS = {freeze: '冻结备货分配', resequence: '重排未发车'};
+
+function summarize(lines) {
+  return lines.length ? lines.map(line => `${line.lot}:${line.quantity}`).join('，') : '—';
+}
+
+async function renderShifts(runId, ticket) {
+  const overview = await query(`/api/shifts/${runId}`);
+  if (!overview.shifts.length) {
+    if (ticket === renderEpoch) body.replaceChildren(el('p', '本批没有可裁决班次', 'empty'));
+    return;
+  }
+  if (!overview.shifts.some(item => item.shift === shiftDay)) shiftDay = overview.shifts[0].shift;
+  const detail = await query(`/api/shifts/${runId}/${shiftDay}`);
+  const root = el('div');
+  const switcher = el('div', undefined, 'actions');
+  for (const item of overview.shifts) {
+    const tab = el('button', `${item.shift} · ${item.orders} 单${item.published ? ' · 已发布' : ''}`,
+                   item.shift === shiftDay ? 'btn btn--primary' : 'btn');
+    tab.type = 'button';
+    tab.addEventListener('click', () => { shiftDay = item.shift; render(); });
+    switcher.append(tab);
+  }
+  root.append(switcher);
+  const mismatched = Number(detail.reconciliation.mismatched);
+  root.append(el('p', mismatched ? `独立对账有 ${mismatched} 项差异，裁决可登记但不能发布`
+                                 : '独立对账已对齐，确认后即可发布导出',
+                 mismatched ? 'notice problem' : 'notice'));
+  root.append(el('h3', '班次批次池'));
+  const poolBox = el('div');
+  table(poolBox, [['批次', 'lot'], ['到期', 'expiry'], ['品种', 'cultivar'],
+                  ['库存', 'stock', 'num'], ['留样', 'retained', 'num'], ['可用', 'available', 'num'],
+                  ['各自挑批', 'demanded', 'num'],
+                  ['重复占用', row => row.over ? el('span', row.over, 'state problem') : '0', 'num'],
+                  ['状态', row => row.blocked ? el('span', '到期停调', 'state problem') : '']],
+        detail.pool);
+  root.append(poolBox);
+  const picked = new Set(detail.current ? detail.current.picked : []);
+  const boxes = new Map();
+  root.append(el('h3', '调出单与备货状态'));
+  const orderBox = el('div');
+  table(orderBox, [['业务键', 'key'], ['需求', 'demand', 'num'],
+                   ['各自挑批', row => summarize(row.independent.lines)],
+                   ['未满足', row => row.independent.unmet, 'num'],
+                   ['已备货', row => {
+                     const box = el('input');
+                     box.type = 'checkbox';
+                     box.checked = picked.has(row.key);
+                     boxes.set(row.key, box);
+                     return box;
+                   }]], detail.orders);
+  root.append(orderBox);
+  const form = el('form', undefined, 'panel__body');
+  const strategy = el('select');
+  for (const [value, label] of Object.entries(STRATEGY_LABELS)) {
+    const option = el('option', label);
+    option.value = value;
+    if (detail.current && detail.current.strategy === value) option.selected = true;
+    strategy.append(option);
+  }
+  const submit = el('button', '裁决班次', 'btn btn--primary');
+  submit.type = 'submit';
+  const action = el('div', undefined, 'actions');
+  action.append(el('span', '裁决策略'), strategy, submit);
+  form.append(action);
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    submit.disabled = true;
+    try {
+      const chosen = [...boxes.entries()].filter(([, box]) => box.checked).map(([key]) => key);
+      const payload = await query(`/api/shifts/${runId}/${shiftDay}/adjudicate`,
+                                  {strategy: strategy.value, picked: chosen,
+                                   base_version: detail.current ? detail.current.version : 0});
+      notice(`裁决已登记 · 版本 ${payload.version}`);
+      await render();
+    } catch (error) { notice(error.message, true); }
+    finally { submit.disabled = false; }
+  });
+  root.append(form);
+  if (detail.current) {
+    const current = detail.current;
+    root.append(el('h3', `当前裁决 · 版本 ${current.version} · ${STRATEGY_LABELS[current.strategy]}`));
+    const totals = current.result.totals;
+    root.append(el('p', `需求 ${totals.demand} · 分配 ${totals.allocated} · 未满足 ${totals.unmet}`, 'notice'));
+    const resultBox = el('div');
+    table(resultBox, [['业务键', 'key'], ['状态', 'state'], ['需求', 'demand', 'num'],
+                      ['班次分配', row => summarize(row.lines)],
+                      ['未满足', row => Number(row.unmet) ? el('span', row.unmet, 'state problem') : '0', 'num'],
+                      ['挑批变更', row => row.changed ? el('span', '已重排', 'state') : '']],
+          current.result.orders);
+    root.append(resultBox);
+    const usageBox = el('div');
+    table(usageBox, [['批次', 'lot'], ['可用', 'available', 'num'], ['已分配', 'allocated', 'num'],
+                     ['剩余', 'left', 'num'], ['留样', 'retained', 'num']],
+          current.result.pool);
+    root.append(usageBox);
+    root.append(el('h3', '班次复核'));
+    const timelineBox = el('div');
+    table(timelineBox, [['版本', 'version', 'num'], ['裁决版本', 'adjudication', 'num'],
+                        ['结论', 'decision'], ['复核意见', 'note'], ['登记 UTC', 'changed']],
+          detail.reviews);
+    root.append(timelineBox);
+    const reviewForm = el('form', undefined, 'panel__body');
+    const note = el('textarea');
+    note.maxLength = 500;
+    note.setAttribute('aria-label', '复核意见');
+    const decision = el('select');
+    for (const label of ['确认', '退回']) {
+      const option = el('option', label);
+      decision.append(option);
+    }
+    const commit = el('button', '提交班次复核', 'btn btn--primary');
+    commit.type = 'submit';
+    const download = el('button', '导出班次证据', 'btn');
+    download.type = 'button';
+    const reviewAction = el('div', undefined, 'actions');
+    reviewAction.append(decision, commit, download);
+    reviewForm.append(note, reviewAction);
+    reviewForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      commit.disabled = true;
+      try {
+        await query(`/api/shifts/${runId}/${shiftDay}/review`,
+                    {version: current.version, decision: decision.value, note: note.value});
+        notice('班次复核已登记');
+        await render();
+      } catch (error) { notice(error.message, true); }
+      finally { commit.disabled = false; }
+    });
+    download.addEventListener('click', async () => {
+      download.disabled = true;
+      try {
+        const response = await fetch(`/api/shifts/${runId}/${shiftDay}/export`);
+        if (!response.ok) throw Error((await response.json()).detail || '导出被拒');
+        const link = el('a');
+        link.href = URL.createObjectURL(await response.blob());
+        link.download = `shift-${shiftDay}.json`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } catch (error) { notice(error.message, true); }
+      finally { download.disabled = false; }
+    });
+    root.append(reviewForm);
+  }
+  if (ticket === renderEpoch) body.replaceChildren(root);
+}
+
 async function render() {
   const ticket = ++renderEpoch;
   const stage = selected;
@@ -118,6 +266,9 @@ async function render() {
       const contract = await query('/api/contract', inputs);
       view = [key, line, ['修订', 'revision', 'num'], ['来源时刻 UTC', 'time'], ['字段', row => evidence('归一值', Object.entries(row.fields).map(([k,v]) => `${k} · ${v}`))]];
       rows = contract.accepted;
+    } else if (stage === 'shifts') {
+      await renderShifts(id, ticket);
+      return;
     } else if (stage === 'runs') {
       const runs = await query('/api/runs');
       view = [['指纹','id'], ['创建 UTC','created'], ['操作', row => {

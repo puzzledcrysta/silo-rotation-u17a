@@ -13,6 +13,17 @@ CREATE TABLE IF NOT EXISTS reviews (
   decision TEXT NOT NULL, note TEXT NOT NULL, changed TEXT NOT NULL,
   PRIMARY KEY(run_id,version)
 );
+CREATE TABLE IF NOT EXISTS shift_runs (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+  shift TEXT NOT NULL, version INTEGER NOT NULL, strategy TEXT NOT NULL,
+  picked TEXT NOT NULL, result TEXT NOT NULL, created TEXT NOT NULL,
+  UNIQUE(run_id,shift,version)
+);
+CREATE TABLE IF NOT EXISTS shift_reviews (
+  run_id TEXT NOT NULL, shift TEXT NOT NULL, version INTEGER NOT NULL,
+  adjudication INTEGER NOT NULL, decision TEXT NOT NULL, note TEXT NOT NULL,
+  changed TEXT NOT NULL, PRIMARY KEY(run_id,shift,version)
+);
 """
 
 

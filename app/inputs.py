@@ -50,6 +50,18 @@ class Review(BaseModel):
     note: str = Field(default='',max_length=500)
 
 
+class Adjudication(BaseModel):
+    strategy: Literal['freeze','resequence']
+    picked: list[str] = Field(default_factory=list,max_length=4096)
+    base_version: int = Field(ge=0)
+
+
+class ShiftReview(BaseModel):
+    version: int = Field(ge=1)
+    decision: Literal['确认','退回']
+    note: str = Field(default='',max_length=500)
+
+
 def read_sample(name):
     choices = {'shift':'shift.csv','external':'external.csv'}
     if name not in choices:
