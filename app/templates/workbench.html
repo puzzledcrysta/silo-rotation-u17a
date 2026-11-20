@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title><link rel="stylesheet" href="/static/theme.css">
+<script type="module" src="/static/workspace.js"></script><link rel="stylesheet" href="/static/design.css"></head>
+<body><div class="app">
+  <aside class="rail"><a class="brand" href="/">{{ title }}</a>
+  <nav aria-label="模块">{% for slug, label in tabs.items() %}<a href="#{{ slug }}" data-module="{{ slug }}"{% if slug == 'domain' %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
+  <small>{{ role }}</small></aside>
+  <div class="work"><header class="topbar"><span>{{ slug }} / {{ version }}</span>
+  <a class="btn" id="export" hidden>导出证据</a></header>
+  <main class="content"><section class="mast"><div><h1>{{ title }}</h1><p>{{ key }} · {{ unit }}</p></div>
+    <div class="instrument readout"><span id="created"></span></div></section>
+<div class="kpis" id="kpis" aria-label="批次指标">
+  <div class="kpi"><span>记录</span><strong data-count="input">—</strong></div>
+  <div class="kpi"><span>计入</span><strong data-count="accepted">—</strong></div>
+  <div class="kpi"><span>隔离</span><strong data-count="rejected">—</strong></div>
+  <div class="kpi"><span>外部账差值</span><strong data-count="delta">—</strong></div>
+  <div class="kpi"><span>待查</span><strong data-count="mismatched">—</strong></div>
+</div><div class="grid">
+<section class="panel signal" id="evidence-panel" data-instrument="rotation">
+    <div class="panel__head"><h2>分配明细</h2><span class="num" id="evidence-key"></span></div>
+    <div class="panel__body" id="signal" aria-live="polite"><p class="empty">运行后选择一条记录</p></div>
+    </section>
+<section class="panel source" aria-labelledby="source-title"><div class="panel__head"><h2 id="source-title">批次输入</h2></div>
+      <form id="source" class="panel__body"><div class="actions"><button type="submit" class="btn btn--primary">运行 {{ tabs.domain }}</button>
+      <button type="button" class="btn" id="sample">载入样例</button></div>
+      <details><summary>导入来源与外部账</summary>
+      <label>原始记录 <input id="source-file" type="file" accept=".csv,text/csv"></label>
+      <textarea id="source-csv" aria-label="原始记录 CSV" placeholder="班次样例"></textarea>
+      <label>外部账 <input id="book-file" type="file" accept=".csv,text/csv"></label>
+      <textarea id="book-csv" aria-label="外部账 CSV" placeholder="对账样例"></textarea></details>
+      <output class="notice" id="notice" role="status" aria-live="polite"></output></form></section>
+<section class="panel results" aria-labelledby="phase"><div class="panel__head">
+      <h2 id="phase">{{ tabs.domain }}</h2><span id="run-id" class="num"></span></div>
+      <div class="scroll" id="grid-data"><p class="empty">载入班次样例开始复算</p></div>
+      <form id="review" class="panel__body" hidden>
+        <label>复核意见<textarea id="review-note" maxlength="500"></textarea></label>
+        <div class="actions"><label>结论<select id="decision"><option>确认</option><option>退回</option></select></label>
+        <button class="btn btn--primary" type="submit">提交复核</button></div>
+      </form></section>  </div></main><footer class="statusbar"><span id="state">待运行</span>
+  <a href="/docs">接口</a><span>UTC</span></footer></div></div>
+  <script type="application/json" id="settings">{{ {'reasons': reasons, 'tabs': tabs, 'unit': unit}|tojson }}</script>
+</body></html>

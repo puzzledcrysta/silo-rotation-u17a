@@ -1,0 +1,16 @@
+/* 候选 · 留样 */
+:root {
+  color-scheme: light;
+  --bg: #ecf0e5; --rail: #e1e7d4; --accent: #4f661b; --ink: #2d3924;
+  --panel: color-mix(in srgb, var(--bg) 91%, white);
+  --line: color-mix(in srgb, var(--ink) 24%, var(--bg));
+  --mute: color-mix(in srgb, var(--ink) 78%, var(--bg));
+  --th: color-mix(in srgb, var(--panel) 84%, var(--accent));
+  --rail-ink: var(--ink);
+  --primary: #fff;
+  --bad: #832635;
+  --ui: Palatino, serif; --mono: ui-monospace, Menlo, monospace;
+  --pad: 15px; --row: 34px; --gap: 13px;
+  --figure: 28px; --title: 39px; --graph: 48px;
+  --scroll: 342px;
+}
